@@ -1,0 +1,115 @@
+#!/bin/bash
+#First attempt at GMT location cross sections
+
+out=fuego_xsection_single_mean.ps
+hypofile1=locations_raw.dat
+grdfile=fg_grid.grd
+stacor=tight-simultaneous_mean_sta.dat
+prof_eW=fuego_eW.xyz
+prof_nS=fuego_nS.xyz
+vmod=final_mod.dat
+
+north=14.55
+south=14.40
+east=-90.80
+west=-90.95
+maxdepth=10
+
+tick='-B0.05/0.05WSen'
+proj='-JX8d'
+
+##Base layer
+gmt psbasemap -R$west/$east/$south/$north $proj $tick -P -Y12 -K > $out
+
+##Countour layer
+gmt grdcontour $grdfile -R -J -C50 -A100+f6 -Wc0.25p -Wa0.75p -V -O -K >>$out
+
+##Political boundaries
+#pscoast -R -J -O -K -W2 -Di -N1 >>$out
+
+##Station correction plotting
+awk '{ if ($7 <= 0) print $3,$2,sqrt($7^2)+0.2 }' $stacor |\
+	gmt psxy -R -J -O -St -Gred -W0.05 -K >>$out
+
+#awk '{print ($2,$3)}' $stacor |\
+#gmt psxy -R -J -O -St -Gred -W0.05 -K >>$out
+
+awk '{ if ($7 > 0) print $3,$2,sqrt($7^2)+0.2 }' $stacor |\
+	gmt psxy -R -J -O -St -Gblue -W0.05 -K >>$out
+awk '{ if ($7 == 0) print $3,$2,sqrt($7^2)+0.2 }' $stacor |\
+	gmt psxy -R -J -O -St -Gblack -W0.05 -K >>$out
+
+##Add roads and hypocenters
+#psxy $roads -R -J -O -K -m >>$out
+awk '{print($1,$2)}' $hypofile1 | gmt psxy -R -J -O -K -Sc0.1 -W0.5 -G45/142/30 >>$out
+#awk '{print($1,$2)}' $hypofile3 | psxy -R -J -O -K -Sc0.15 -W0.5 -G89/22/214 >>$out
+#awk '{print($1,$2)}' $hypofile2 | psxy -R -J -O -K -Sc0.15 -W0.5 -G211/44/10 >>$out
+
+## scale bar
+#pscoast -R -J$scale -Di -N1/5/255/10/140 -Lf-121.80/40.20/40.5/25 -O -K -V >> $out
+
+## E-W cross-section
+scale=X8/-6
+#tick=-B1:Longitude:/10:Depth:WSen
+
+#set scale=x4.25/-0.06
+
+#plot topographic profile
+#extract an xyz file from the grdfile along the line of interest
+#grd2xyz $grdfile -R-90.64/-90.56/14.3826/14.3828 > pacaya_eW.xyz
+#gmt grd2xyz $grdfile -R-90.95/-90.80/14.4754/14.4762 > fuego_eW.xyz
+#0.000805662
+
+awk '{if ($2==14.4764433424) print $1,$3/1000*(-1)}' $prof_eW |\
+      gmt psxy -Y-7.5 -R-90.95/-90.80/-4.0/$maxdepth  \
+    -Ba0.03f0.125:"Longitude (deg)":/a1.0f0.25:"Depth (km)":WeSn -J$scale -W1.0 -O -K >>$out
+
+awk '{print $1,$3}' $hypofile1 |\
+        gmt psxy -R$west/$east/-4.0/$maxdepth -J$scale \
+        -Ba0.03f0.125:"Longitude (deg)":/a1.0f0.25:"Depth (km)":WeSn -Sc0.1 -G45/142/30 -W0.5 -O -K >>$out
+
+#awk '{ print $1,$3 }' $hypofile3 |\
+       # psxy -R$west/$east/-2/$maxdepth -J$scale \
+       # -Sc0.15 -G89/22/214 -W0.5 -O -K >>$out
+#awk '{ print $1,$3 }' $hypofile2 |\
+       # psxy -R$west/$east/-2/$maxdepth -J$scale \
+       # -Sc0.15 -G211/44/10 -W0.5 -O -K >>$out
+
+## N-S cross section
+scale=X6/8
+#set scale=x0.06/4.25
+
+#grd2xyz $grdfile -R-90.6016/-90.6014/14.34/14.42 > pacaya_nS.xyz
+#gmt grd2xyz $grdfile -R-90.8764/-90.8756/14.40/14.55 > fuego_nS.xyz
+
+awk '{if ($1==-90.8763492546) print $3/1000*(-1),$2}' $prof_nS |\
+     gmt psxy -X9.0 -Y7.5 -R-4.0/$maxdepth/14.40/14.55  \
+     -Ba1.0f0.25:"Depth (km)":/a0.03f0.125:"Latitude (deg)":wEsN -J$scale -W1.0 -O -K >>$out
+
+awk '{print $3,$2}' $hypofile1 | \
+        gmt psxy -R-4.0/$maxdepth/$south/$north -J$scale \
+        -Ba1.0f0.25:"Depth (km)":/a0.03f0.125:"Latitude (deg)":wEsN -Sc0.1 -G45/142/30 -W0.5 -O -K >>$out
+#awk '{print $3,$2}' $hypofile3 | \
+      #  psxy -R-2/$maxdepth/$south/$north -J$scale \
+      #  -Sc0.15 -G89/22/214 -W0.5 -O -K >>$out
+#awk '{print $3,$2}' $hypofile2 | \
+       # psxy -R-2/$maxdepth/$south/$north -J$scale \
+       # -Sc0.15 -G211/44/10 -W0.5 -O -K >>$out
+
+##Velocity models
+scale=X6/-6
+#awk -f ~/Desktop/velest/scripts/vz_output.awk ~/Desktop/velest/mean_mod_simultaneous.OUT |\
+	#awk  '{print $2,$1}'  $vmod |\
+	#GMT psxy -Y-7.5 -R0.5/12/-2.0/50 -Ba1.0f0.25:"P-Wave Velocity [km/s]":/a10f1.0:"Depth [km]":wESn \
+	#-J$scale -W1.5,45/142/30 -P -O -V -K >>$out
+#awk -f ./scripts/vz_output.awk ./data/VBRun6.5.OUT |\
+       # awk  '{print $2,$1}'  |\
+       # GMT psxy -R -JX -W4,89/22/214 -P -O -V -K >>$out
+#awk -f ./scripts/vz_output.awk ./data/VBRun5.4.OUT |\
+      #  awk  '{print $2,$1}'  |\
+      #  GMT psxy -R -JX -W4,211/44/10 -P -O -V >>$out
+
+#gv  $out
+
+
+exit
